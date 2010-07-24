@@ -22,11 +22,23 @@ class Flattr_Settings
 		register_setting('flattr-settings-group', 'flattr_lng',		array($this, 'validate_language'));
 		register_setting('flattr-settings-group', 'flattr_compact', array($this, 'validate_checkbox'));
 		register_setting('flattr-settings-group', 'flattr_hide',	array($this, 'validate_checkbox'));
+		# Should the except be modified, too? (default: true)
+		register_setting('flattr-settings-group', 'flattr_mod_exc', array($this, 'validate_modify_excerpts'));
+		# Should the button be only shows in single view? (is_single() == true)
+		register_setting('flattr-settings-group', 'flattr_only_single', array($this, 'validate_only_single'));
     }
 
     public function render()
     {
         include('settings-template.php');
+    }
+    
+    public function validate_only_single($only_single) {
+	return ($only_single == 'true' ? 'true' : 'false');
+    }
+    
+    public function validate_modify_excerpts($modify_excerpts) {
+	return ($modify_excerpts == 'true' ? 'true' : 'false');
     }
     
     public function validate_category($category)

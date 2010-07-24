@@ -71,6 +71,17 @@
 					<th scope="row"><?php _e('Insert Flattr button into pages automagically'); ?></th>
 					<td><input <?php if (get_option('flattr_aut_page', 'off') == 'on') { echo(' checked="checked"'); } ?> type="checkbox" name="flattr_aut_page" value="on" /><br />(uncheck this if you would rather use <code>&lt;?php the_flattr_permalink() ?&gt;</code>)</td>
 				</tr>
+				
+				<tr valign="top">
+					<th scope="row"><?php _e('Add to excerpts?'); ?></th>
+					<td><input <?php if (get_option('flattr_mod_exc', 'true') == 'true') { echo(' checked="checked"'); } ?> type="checkbox" name="flattr_mod_exc" value="true" /><br />(uncheck to NOT have modified the excerpt page)</td>
+				</tr>
+				
+				<tr valign="top">
+					<th scope="row"><?php _e('Show only in single view?'); ?></th>
+					<td><input <?php if (get_option('flattr_only_single', 'false') == 'true') { echo(' checked="checked"'); } ?> type="checkbox" name="flattr_only_single" value="true" /><br /> (<code>is_single() == true</code>))</td>
+				</tr>
+				
 			</table>
 			
 			<p class="submit">

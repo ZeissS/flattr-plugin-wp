@@ -41,9 +41,13 @@ class Flattr
 		}
 		if ( get_option('flattr_aut_page', 'off') == 'on' || get_option('flattr_aut', 'off') == 'on' )
 		{
-			remove_filter('get_the_excerpt', 'wp_trim_excerpt');
-			add_filter('the_content', array($this, 'injectIntoTheContent'),11); 
-			add_filter('get_the_excerpt', array($this, 'filterGetExcerpt'), 1);
+			add_filter('the_content', array($this, 'injectIntoTheContent'),11);
+			
+			if ( get_option('flattr_mod_exc', 'true') == 'true' )
+			{
+				remove_filter('get_the_excerpt', 'wp_trim_excerpt');
+				add_filter('get_the_excerpt', array($this, 'filterGetExcerpt'), 1);
+			}
 		}
 	}
 	protected function addAdminNoticeMessage($msg)
@@ -103,7 +107,7 @@ class Flattr
 	{
 		global $post;
 
-		if ( ! $skipOptionCheck && ( ($post->post_type == 'page' && get_option('flattr_aut_page', 'off') != 'on') || ($post->post_type != 'page' && get_option('flattr_aut', 'off') != 'on') || is_feed() ) )
+		if ( ! $skipOptionCheck && ( (is_single() != true && get_option('flattr_only_single', 'false') == 'true') || ($post->post_type == 'page' && get_option('flattr_aut_page', 'off') != 'on') || ($post->post_type != 'page' && get_option('flattr_aut', 'off') != 'on') || is_feed() ) )
 		{
 			return '';
 		}
