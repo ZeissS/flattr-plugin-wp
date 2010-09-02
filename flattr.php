@@ -3,17 +3,18 @@
 Plugin Name: Flattr
 Plugin URI: http://flattr.com/
 Description: Give your readers the opportunity to Flattr your effort
-Version: 0.9.11
+Version: 0.9.13
 Author: Flattr.com
 Author URI: http://flattr.com/
+License: This code is (un)licensed under the kopimi (copyme) non-license; http://www.kopimi.com. In other words you are free to copy it, taunt it, share it, fork it or whatever. :)
 */
 
 class Flattr
 {
-	const VERSION = '0.9.11';
+	const VERSION = '0.9.14';
 	const WP_MIN_VER = '2.9';
 	const PHP_MIN_VER = '5.0.0';
-	const API_SCRIPT  = 'http://api.flattr.com/button/load.js?v=0.2';
+	const API_SCRIPT  = 'https://api.flattr.com/js/0.5.0/load.js?mode=auto';
 
 	/** @var array */
 	protected static $categories = array('text', 'images', 'audio', 'video', 'software', 'rest');
@@ -49,7 +50,10 @@ class Flattr
 				add_filter('get_the_excerpt', array($this, 'filterGetExcerpt'), 1);
 			}
 		}
+
+		wp_enqueue_script('flattrscript', self::API_SCRIPT);		
 	}
+	
 	protected function addAdminNoticeMessage($msg)
 	{
 		if (!isset($this->adminNoticeMessages))
@@ -117,6 +121,11 @@ class Flattr
 			return '';
 		}
 
+		$flattr_uid = get_option('flattr_uid');
+		if (!$flattr_uid) {
+			return '';
+		}
+
 		$selectedLanguage = get_post_meta($post->ID, '_flattr_post_language', true);
 		if (empty($selectedLanguage))
 		{
@@ -137,14 +146,14 @@ class Flattr
 
 		$buttonData = array(
 
-			'user_id'	=> get_option('flattr_uid'),
+			'user_id'	=> $flattr_uid,
 			'url'		=> get_permalink(),
 			'compact'	=> ( get_option('flattr_compact', false) ? true : false ),
 			'hide'		=> $hidden,
 			'language'	=> $selectedLanguage,
 			'category'	=> $selectedCategory,
-			'title'		=> get_the_title(),
-			'body'		=> $this->getExcerpt(),
+			'title'		=> strip_tags(get_the_title()),
+			'body'		=> strip_tags(preg_replace('/\<br\s*\/?\>/i', "\n", $this->getExcerpt())),
 			'tag'		=> strip_tags(get_the_tag_list('', ',', ''))
 
 		);
@@ -157,42 +166,43 @@ class Flattr
 
 	protected function getButtonCode($params)
 	{
-		$cleaner = create_function('$expression', "return trim(preg_replace('~\r\n|\r|\n~', ' ', addslashes(\$expression)));");
+		$rev = sprintf('flattr;uid:%s;language:%s;category:%s;',
+			$params['user_id'],
+			$params['language'],
+			$params['category']
+		);
 
-		$output = "<script type=\"text/javascript\">\n";
-		$output .= "var flattr_wp_ver = '" . self::VERSION  . "';\n";
-		$output .= "var flattr_uid = '" . $cleaner($params['user_id'])      . "';\n";
-		$output .= "var flattr_url = '" . $cleaner($params['url'])         . "';\n";
+		if (!empty($params['tag']))
+		{
+			$rev .= 'tags:'. addslashes($params['tag']) .';';
+		}
+
+		if ($params['hide'])
+		{
+			$rev .= 'hidden:1;';
+		}
 
 		if ($params['compact'])
 		{
-			$output .= "var flattr_btn = 'compact';\n";
+			$rev .= 'button:compact;';
 		}
-		
-		if ($params['hide'])
+
+		if (empty($params['body']) && !in_array($params['category'], array('images', 'video', 'audio')))
 		{
-			$output .= "var flattr_hide = 1;\n";
-		}
-		else
-		{
-			$output .= "var flattr_hide = 0;\n";
-		}
+			$params['body'] = get_bloginfo('description');
 
-		$output .= "var flattr_lng = '" . $cleaner($params['language'])    . "';\n";
-		$output .= "var flattr_cat = '" . $cleaner($params['category'])    . "';\n";
-
-		$output .= "var flattr_tle = '". $cleaner($params['title']) ."';\n";
-		$output .= "var flattr_dsc = '". $cleaner($params['body']) ."';\n";
-
-		if ($params['tag'])
-		{
-			$output .= "var flattr_tag = '". $cleaner($params['tag']) ."';\n";
+			if (empty($params['body']) || strlen($params['body']) < 5)
+			{
+				$params['body'] = $params['title'];
+			}
 		}
 
-		$output .= "</script>\n";
-		$output .= '<script src="' . self::API_SCRIPT . '" type="text/javascript"></script>';
-		
-		return $output;
+		return sprintf('<a class="FlattrButton" style="display:none;" href="%s" title="%s" rev="%s">%s</a>',
+			$params['url'],
+			addslashes($params['title']),
+			$rev,
+			$params['body']
+		);
 	}
 
 	public static function getCategories()
@@ -202,8 +212,8 @@ class Flattr
 
 	public static function filterGetExcerpt($content)
 	{
-                $excerpt_length = apply_filters('excerpt_length', 55);
-                $excerpt_more = apply_filters('excerpt_more', ' ' . '[...]');
+        $excerpt_length = apply_filters('excerpt_length', 55);
+        $excerpt_more = apply_filters('excerpt_more', ' ' . '[...]');
 
 		return self::getExcerpt($excerpt_length) . $excerpt_more;
 	}
@@ -219,10 +229,12 @@ class Flattr
 	    }
 
 		$excerpt = strip_shortcodes($excerpt);
-
 		$excerpt = strip_tags($excerpt);
 		$excerpt = str_replace(']]>', ']]&gt;', $excerpt);
+		
+		// Hacks for various plugins
 		$excerpt = preg_replace('/httpvh:\/\/[^ ]+/', '', $excerpt); // hack for smartyoutube plugin
+		$excerpt = preg_replace('%httpv%', 'http', $excerpt); // hack for youtube lyte plugin
 	
 	    // Try to shorten without breaking words
 	    if ( strlen($excerpt) > $excerpt_max_length )
@@ -271,7 +283,7 @@ class Flattr
 			require_once($this->getBasePath() . 'settings.php');
 			$this->settings = new Flattr_Settings();
 		}
-		
+
 		if (!$this->postMetaHandler)
 		{
 			require_once($this->getBasePath() . 'postmeta.php');
@@ -287,7 +299,13 @@ class Flattr
 	
 	public function injectIntoTheContent($content)
 	{
-		return $content . $this->getButton();
+		if ( get_option('flattr_top', false) ) {
+			$result = $this->getButton() . $content;
+		}
+		else {
+			$result = $content . $this->getButton();
+		}
+		return $result;
 	}	
 }
 
